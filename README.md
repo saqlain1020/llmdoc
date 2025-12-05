@@ -18,11 +18,12 @@ A CLI tool for automatically generating documentation for TypeScript projects us
 
 ```bash
 # Use directly with npx (no installation required)
-npx llmdoc
+npx llmdoc@latest
+bunx llmdoc@latest
 
 # Or install globally
-npm install -g llmdoc
-bun add -g llmdoc
+npm install -g llmdoc@latest
+bun add -g llmdoc@latest
 ```
 
 > **✨ npx works without local installation!** The config file can import from `llmdoc` even when using npx - the package resolves imports automatically.
@@ -33,10 +34,10 @@ bun add -g llmdoc
 
 ```bash
 # Create a TypeScript config (with type safety)
-npx llmdoc init
+npx llmdoc@latest init
 
 # Or create a JSON config (simpler, no imports needed)
-npx llmdoc init --json
+npx llmdoc@latest init --json
 ```
 
 2. **Edit your config file** to configure your LLM provider:
@@ -49,7 +50,7 @@ import { defineConfig } from 'llmdoc';
 export default defineConfig({
   llm: {
     provider: 'openai', // 'openai' | 'anthropic' | 'google-genai'
-    model: 'gpt-4o',
+    model: 'gpt-5.1',
     // apiKey: 'your-api-key', // Or use environment variables
   },
 });
@@ -61,7 +62,7 @@ export default defineConfig({
 {
   "llm": {
     "provider": "openai",
-    "model": "gpt-4o"
+    "model": "gpt-5.1"
   },
   "include": ["src/**/*.ts"],
   "exclude": ["**/*.test.ts", "node_modules/**"]
@@ -71,7 +72,7 @@ export default defineConfig({
 3. **Run documentation generation:**
 
 ```bash
-npx llmdoc
+npx llmdoc@latest
 ```
 
 ## Configuration
@@ -90,9 +91,7 @@ export default defineConfig({
   llm: {
     provider: 'openai',
     model: 'gpt-4o',
-    apiKey: process.env.OPENAI_API_KEY,
-    temperature: 0.3,
-    maxTokens: 4096,
+    apiKey: process.env.OPENAI_API_KEY
   },
 
   // Custom documentation prompt
