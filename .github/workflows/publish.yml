@@ -26,7 +26,7 @@ jobs:
         with:
           node-version: 20
           registry-url: https://npm.pkg.github.com/
-          scope: "saqlain1020"
+          scope: "@saqlain1020"
 
       - name: Install dependencies
         run: npm install --force
