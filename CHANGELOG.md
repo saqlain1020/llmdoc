@@ -1,5 +1,11 @@
 # llmdoc
 
+## 0.2.1
+
+### Patch Changes
+
+- [`214de6c`](https://github.com/saqlain1020/llmdoc/commit/214de6c44dd91586d87db3c9eaa936323a8f9513) Thanks [@saqlain1020](https://github.com/saqlain1020)! - llm config import error fix
+
 ## 0.2.0
 
 ### Minor Changes
