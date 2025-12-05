@@ -1,5 +1,11 @@
 # llmdoc
 
+## 0.2.3
+
+### Patch Changes
+
+- [`16a962b`](https://github.com/saqlain1020/llmdoc/commit/16a962b4288630f862086a293659e64f97789b02) Thanks [@saqlain1020](https://github.com/saqlain1020)! - fix: config dir
+
 ## 0.2.2
 
 ### Patch Changes
