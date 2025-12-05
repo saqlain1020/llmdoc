@@ -1,5 +1,11 @@
 # llmdoc
 
+## 0.2.4
+
+### Patch Changes
+
+- [`0845dd3`](https://github.com/saqlain1020/llmdoc/commit/0845dd317d3479cb441873de77520d260c2f884d) Thanks [@saqlain1020](https://github.com/saqlain1020)! - readme updated
+
 ## 0.2.3
 
 ### Patch Changes
