@@ -30,8 +30,8 @@ async function loadTsConfig(configPath: string): Promise<unknown> {
   //   dist/config-*.mjs (this code, bundled as a chunk at dist root)
   //   dist/index.mjs (main entry)
   //   dist/config/index.mjs (config entry)
-  const mainEntry = resolve(currentDir, "./dist/index.mjs");
-  const configEntry = resolve(currentDir, "./dist/config/index.mjs");
+  const mainEntry = resolve(currentDir, "./index.mjs");
+  const configEntry = resolve(currentDir, "./config/index.mjs");
 
   const jiti = createJiti(import.meta.url, {
     interopDefault: true,
