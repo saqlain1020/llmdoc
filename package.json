@@ -1,6 +1,6 @@
 {
   "name": "llmdoc",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "CLI tool for generating documentation using LLMs",
   "type": "module",
   "license": "MIT",
