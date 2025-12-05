@@ -1,5 +1,0 @@
----
-"llmdoc": minor
----
-
-FEAT: INIT
