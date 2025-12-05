@@ -4,15 +4,15 @@
   "description": "CLI tool for generating documentation using LLMs",
   "type": "module",
   "license": "MIT",
-  "homepage": "https://github.com/author/llmdoc#readme",
+  "homepage": "https://github.com/saqlain1020/llmdoc",
   "bugs": {
     "url": "https://github.com/author/llmdoc/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/author/llmdoc.git"
+    "url": "git+https://github.com/saqlain1020/llmdoc.git"
   },
-  "author": "Author Name <author.name@mail.com>",
+  "author": "Author Name <saqlainprinters@mail.com>",
   "keywords": [
     "documentation",
     "llm",
@@ -47,7 +47,8 @@
     "dev": "tsdown --watch",
     "test": "vitest",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "pnpm run build"
+    "changeset": "changeset",
+    "publish": "changeset version && changeset publish"
   },
   "dependencies": {
     "@langchain/anthropic": "^1.2.2",
@@ -62,8 +63,9 @@
     "zod": "^4.1.13"
   },
   "devDependencies": {
+    "@changesets/changelog-github": "^0.5.1",
+    "@changesets/cli": "^2.29.7",
     "@types/node": "^24.10.1",
-    "bumpp": "^10.3.1",
     "tsdown": "^0.17.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.9"
