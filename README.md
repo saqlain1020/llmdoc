@@ -10,6 +10,7 @@ A CLI tool for automatically generating documentation for TypeScript projects us
 - ⚙️ **Configurable** - Supports OpenAI, Anthropic, and Google Generative AI via LangChain
 - 📁 **Subfolder support** - Break down documentation by folder for better LLM context management
 - 🔗 **Import resolution** - Automatically includes imported files for context
+- 💰 **Cost estimation** - Preview token usage and estimated costs with `--dry-run`
 - 🔄 **Update existing docs** - Preserves and updates existing documentation
 - 🚀 **CI/CD ready** - Clean output with no LLM artifacts, designed for automated pipelines
 
@@ -177,9 +178,34 @@ Commands:
 | Anthropic | claude-3-opus, claude-3-sonnet, claude-3-haiku | `ANTHROPIC_API_KEY` |
 | Google | gemini-pro, gemini-1.5-pro | `GOOGLE_API_KEY` |
 
+## Token Estimation & Cost Preview
+
+Use `--dry-run` to preview token usage and estimated costs before making LLM calls:
+
+```bash
+llmdoc --dry-run
+```
+
+Output includes:
+- **Character count** - Total characters being sent
+- **Estimated tokens** - Approximate token count (~0.35 tokens/char for code)
+- **Context usage** - Percentage of model's context window used
+- **Estimated cost** - Approximate input cost based on model pricing
+
+Example output:
+```
+ℹ Token estimate:
+ℹ Characters: 56,655
+ℹ Estimated tokens: ~19,830
+ℹ Context usage: 15.5% of 128K
+ℹ Estimated input cost: $0.0496
+```
+
+The tool includes pricing data for common models (GPT-4o, Claude 3, Gemini). For custom/newer models, character and token counts are still shown.
+
 ## Context Window Limitations
 
-> **Important:** This tool currently does **not** have automatic guards for LLM context window overflow.
+> **Note:** While token estimates and warnings are provided, the tool does **not** automatically prevent context window overflow.
 
 ### Current Behavior
 

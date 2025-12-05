@@ -15,6 +15,13 @@ export { loadConfig } from "./config/index.js";
 export { scanProject } from "./scanner/index.js";
 export { createLLMService, LLMService } from "./llm/index.js";
 export { createGenerator, DocumentationGenerator } from "./generator/index.js";
+export {
+  estimateTokens,
+  getTokenEstimate,
+  formatTokenEstimate,
+  aggregateEstimates,
+  MODEL_PRICING,
+} from "./utils/tokens.js";
 export type {
   LLMDocConfig,
   LLMConfig,
@@ -24,6 +31,7 @@ export type {
   ScanResult,
   GeneratedDoc,
 } from "./types.js";
+export type { TokenEstimate } from "./utils/tokens.js";
 
 /**
  * Package version
