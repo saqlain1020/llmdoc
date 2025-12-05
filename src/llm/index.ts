@@ -1,7 +1,7 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatAnthropic } from "@langchain/anthropic";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
-import { HumanMessage, SystemMessage } from "@langchain/core/messages";
+import { HumanMessage, SystemMessage, type BaseMessage } from "@langchain/core/messages";
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import type { LLMConfig, Logger } from "../types.js";
 
@@ -41,8 +41,8 @@ function createOpenAIModel(config: LLMConfig): BaseChatModel {
   const apiKey = getApiKey(config);
 
   return new ChatOpenAI({
-    modelName: config.model,
-    openAIApiKey: apiKey,
+    model: config.model,
+    apiKey: apiKey,
     temperature: config.temperature ?? 0.3,
     maxTokens: config.maxTokens,
     configuration: config.baseUrl ? { baseURL: config.baseUrl } : undefined,
@@ -56,8 +56,8 @@ function createAnthropicModel(config: LLMConfig): BaseChatModel {
   const apiKey = getApiKey(config);
 
   return new ChatAnthropic({
-    modelName: config.model,
-    anthropicApiKey: apiKey,
+    model: config.model,
+    apiKey: apiKey,
     temperature: config.temperature ?? 0.3,
     maxTokens: config.maxTokens ?? 4096,
   });
@@ -70,7 +70,7 @@ function createGoogleModel(config: LLMConfig): BaseChatModel {
   const apiKey = getApiKey(config);
 
   return new ChatGoogleGenerativeAI({
-    modelName: config.model,
+    model: config.model,
     apiKey: apiKey,
     temperature: config.temperature ?? 0.3,
     maxOutputTokens: config.maxTokens,
@@ -96,6 +96,40 @@ export function createLLMModel(config: LLMConfig, logger?: Logger): BaseChatMode
 }
 
 /**
+ * Clean up LLM output to ensure it's valid markdown without artifacts
+ */
+function cleanMarkdownOutput(content: string): string {
+  let cleaned = content.trim();
+
+  // Remove markdown code block wrapper if LLM wrapped the entire output
+  // Matches ```markdown ... ``` or ```md ... ``` at the start/end
+  const markdownBlockRegex = /^```(?:markdown|md)?\s*\n([\s\S]*?)\n```\s*$/;
+  const match = cleaned.match(markdownBlockRegex);
+  if (match) {
+    cleaned = match[1].trim();
+  }
+
+  // Remove common LLM preamble phrases at the start
+  const preamblePatterns = [
+    /^(?:Here(?:'s| is) (?:the |your )?(?:documentation|markdown|doc)[^:]*:?\s*\n+)/i,
+    /^(?:Sure[,!]?\s*(?:here(?:'s| is)[^:]*:?)?\s*\n+)/i,
+    /^(?:Certainly[,!]?\s*(?:here(?:'s| is)[^:]*:?)?\s*\n+)/i,
+    /^(?:I(?:'ve| have) (?:generated|created|written)[^:]*:?\s*\n+)/i,
+    /^(?:Below is[^:]*:?\s*\n+)/i,
+  ];
+
+  for (const pattern of preamblePatterns) {
+    cleaned = cleaned.replace(pattern, "");
+  }
+
+  // Ensure the content starts with a heading or meaningful content
+  // If there's a leading blank line followed by #, remove the blank line
+  cleaned = cleaned.replace(/^\n+(#)/, "$1");
+
+  return cleaned.trim();
+}
+
+/**
  * LLM Service for generating documentation
  */
 export class LLMService {
@@ -113,7 +147,7 @@ export class LLMService {
   async generateDocumentation(systemPrompt: string, filesContent: string, existingDocs?: string): Promise<string> {
     this.logger?.debug("Generating documentation with LLM...");
 
-    const messages = [new SystemMessage(systemPrompt)];
+    const messages: BaseMessage[] = [new SystemMessage(systemPrompt)];
 
     let userContent = `Here are the source files to document:\n\n${filesContent}`;
 
@@ -127,22 +161,25 @@ export class LLMService {
       const response = await this.model.invoke(messages);
       const content = response.content;
 
-      if (typeof content === "string") {
-        return content;
-      }
+      let rawContent: string;
 
-      // Handle complex content types (array of content blocks)
-      if (Array.isArray(content)) {
-        return content
+      if (typeof content === "string") {
+        rawContent = content;
+      } else if (Array.isArray(content)) {
+        // Handle complex content types (array of content blocks)
+        rawContent = content
           .map((block) => {
             if (typeof block === "string") return block;
             if ("text" in block) return block.text;
             return "";
           })
           .join("");
+      } else {
+        throw new Error("Unexpected response format from LLM");
       }
 
-      throw new Error("Unexpected response format from LLM");
+      // Clean up the output to ensure it's valid markdown
+      return cleanMarkdownOutput(rawContent);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`LLM generation failed: ${message}`);

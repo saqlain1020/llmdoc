@@ -147,13 +147,8 @@ export default defineConfig({
     // apiKey: 'your-api-key', // Or use OPENAI_API_KEY env var
   },
   
-  // Custom prompt for documentation generation
-  prompt: \`You are a technical documentation expert. Analyze the TypeScript source files 
-and generate comprehensive markdown documentation including:
-- Module overview and purpose
-- Exported functions, classes, and interfaces
-- Parameters and return types
-- Usage examples\`,
+  // Custom prompt for documentation generation (optional - has good defaults with diagram generation)
+  // prompt: \`Your custom prompt here...\`,
   
   // File patterns
   include: ['src/**/*.ts'],
@@ -166,6 +161,15 @@ and generate comprehensive markdown documentation including:
     //   prompt: 'Generate API documentation...',
     //   outputPath: 'src/api/README.md',
     //   existingDocs: 'src/api/README.md',
+    //   
+    //   // Include files imported by this subfolder for context (default: true)
+    //   includeImports: true,
+    //   
+    //   // How deep to resolve nested imports (default: 2)
+    //   importDepth: 2,
+    //   
+    //   // Additional files to include for context (glob patterns)
+    //   additionalFiles: ['src/types/**/*.ts', 'src/utils/helpers.ts'],
     // },
   ],
   

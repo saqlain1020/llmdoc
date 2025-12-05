@@ -3,7 +3,7 @@ import { resolve, dirname, basename } from "node:path";
 import type { LLMDocConfigSchema } from "../config/schema.js";
 import type { IndexedFile, SubfolderConfig, GeneratedDoc, Logger, ScanResult } from "../types.js";
 import { LLMService } from "../llm/index.js";
-import { formatFilesForLLM, getFilesSummary } from "../scanner/index.js";
+import { formatFilesForLLM, getFilesSummary, resolveImportsForFiles, loadAdditionalFiles } from "../scanner/index.js";
 
 /**
  * Read existing documentation file if it exists
@@ -34,6 +34,29 @@ function writeDoc(rootDir: string, outputPath: string, content: string, logger?:
 }
 
 /**
+ * Format files with context separation for LLM
+ */
+function formatFilesWithContext(
+  mainFiles: IndexedFile[],
+  contextFiles: IndexedFile[]
+): string {
+  let content = "";
+
+  if (mainFiles.length > 0) {
+    content += "# Main Source Files\n\nThese are the primary files to document:\n\n";
+    content += formatFilesForLLM(mainFiles);
+  }
+
+  if (contextFiles.length > 0) {
+    content += "\n\n---\n\n# Context Files (Imports & Dependencies)\n\n";
+    content += "These files are imported/used by the main files. Use them for context to understand types, interfaces, and dependencies:\n\n";
+    content += formatFilesForLLM(contextFiles);
+  }
+
+  return content;
+}
+
+/**
  * Generate documentation for a subfolder
  */
 async function generateSubfolderDoc(
@@ -41,7 +64,9 @@ async function generateSubfolderDoc(
   rootDir: string,
   subfolder: SubfolderConfig,
   files: IndexedFile[],
+  allFiles: IndexedFile[],
   globalPrompt: string,
+  exclude: string[],
   logger?: Logger,
   dryRun?: boolean
 ): Promise<GeneratedDoc | null> {
@@ -56,25 +81,69 @@ async function generateSubfolderDoc(
     ? readExistingDoc(rootDir, subfolder.existingDocs)
     : readExistingDoc(rootDir, outputPath);
 
-  logger?.info(`Processing subfolder: ${subfolder.path} (${files.length} files)`);
+  // Resolve imports if enabled (default: true)
+  const includeImports = subfolder.includeImports !== false;
+  const importDepth = subfolder.importDepth ?? 2;
+  let contextFiles: IndexedFile[] = [];
+
+  if (includeImports) {
+    logger?.debug(`Resolving imports for subfolder: ${subfolder.path} (depth: ${importDepth})`);
+    const importedFiles = resolveImportsForFiles(files, allFiles, rootDir, importDepth, logger);
+
+    // Filter out files that are already in the main files
+    const mainFilePaths = new Set(files.map((f) => f.path));
+    contextFiles = importedFiles.filter((f) => !mainFilePaths.has(f.path));
+
+    if (contextFiles.length > 0) {
+      logger?.info(`Found ${contextFiles.length} imported files for context`);
+    }
+  }
+
+  // Load additional files if specified
+  if (subfolder.additionalFiles && subfolder.additionalFiles.length > 0) {
+    const existingPaths = new Set([...files.map((f) => f.path), ...contextFiles.map((f) => f.path)]);
+    const additionalFiles = await loadAdditionalFiles(
+      rootDir,
+      subfolder.additionalFiles,
+      exclude,
+      existingPaths,
+      logger
+    );
+
+    if (additionalFiles.length > 0) {
+      logger?.info(`Added ${additionalFiles.length} additional context files`);
+      contextFiles = [...contextFiles, ...additionalFiles];
+    }
+  }
+
+  const totalFiles = files.length + contextFiles.length;
+  logger?.info(
+    `Processing subfolder: ${subfolder.path} (${files.length} main + ${contextFiles.length} context = ${totalFiles} files)`
+  );
 
   if (dryRun) {
     logger?.info(`[DRY RUN] Would generate docs for:`);
+    logger?.info("Main files:");
     logger?.info(getFilesSummary(files));
+    if (contextFiles.length > 0) {
+      logger?.info("Context files (imports & additional):");
+      logger?.info(getFilesSummary(contextFiles));
+    }
     return {
       outputPath,
       content: "[DRY RUN - No content generated]",
-      sourceFiles: files.map((f) => f.path),
+      sourceFiles: [...files, ...contextFiles].map((f) => f.path),
     };
   }
 
-  const filesContent = formatFilesForLLM(files);
+  const filesContent = contextFiles.length > 0 ? formatFilesWithContext(files, contextFiles) : formatFilesForLLM(files);
+
   const content = await llmService!.generateDocumentation(prompt, filesContent, existingDocs);
 
   return {
     outputPath,
     content,
-    sourceFiles: files.map((f) => f.path),
+    sourceFiles: [...files, ...contextFiles].map((f) => f.path),
   };
 }
 
@@ -199,7 +268,9 @@ export class DocumentationGenerator {
         this.rootDir,
         subfolder,
         files,
+        scanResult.files,
         prompt,
+        this.config.exclude ?? [],
         this.logger,
         this.dryRun
       );

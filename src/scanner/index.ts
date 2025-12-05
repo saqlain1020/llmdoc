@@ -1,6 +1,6 @@
 import { glob } from "glob";
-import { readFileSync } from "node:fs";
-import { resolve, relative, dirname } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { resolve, relative, dirname, join } from "node:path";
 import type { IndexedFile, ScanResult, SubfolderConfig, Logger } from "../types.js";
 
 /**
@@ -113,6 +113,201 @@ export function groupFilesBySubfolder(
   logger?.debug(`Ungrouped files: ${ungrouped.length}`);
 
   return { grouped, ungrouped };
+}
+
+/**
+ * Extract import paths from TypeScript file content
+ */
+export function extractImports(content: string): string[] {
+  const imports: string[] = [];
+
+  // Match ES6 imports: import ... from "path" or import ... from 'path'
+  const es6ImportRegex =
+    /import\s+(?:(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)(?:\s*,\s*(?:\{[^}]*\}|\*\s+as\s+\w+|\w+))*\s+from\s+)?["']([^"']+)["']/g;
+
+  // Match dynamic imports: import("path") or import('path')
+  const dynamicImportRegex = /import\s*\(\s*["']([^"']+)["']\s*\)/g;
+
+  // Match require: require("path") or require('path')
+  const requireRegex = /require\s*\(\s*["']([^"']+)["']\s*\)/g;
+
+  // Match export from: export ... from "path"
+  const exportFromRegex = /export\s+(?:\{[^}]*\}|\*)\s+from\s+["']([^"']+)["']/g;
+
+  let match;
+  while ((match = es6ImportRegex.exec(content)) !== null) {
+    if (match[1]) imports.push(match[1]);
+  }
+  while ((match = dynamicImportRegex.exec(content)) !== null) {
+    imports.push(match[1]);
+  }
+  while ((match = requireRegex.exec(content)) !== null) {
+    imports.push(match[1]);
+  }
+  while ((match = exportFromRegex.exec(content)) !== null) {
+    imports.push(match[1]);
+  }
+
+  return imports;
+}
+
+/**
+ * Resolve an import path to an actual file path
+ */
+export function resolveImportPath(importPath: string, fromFile: string, rootDir: string): string | null {
+  // Skip node_modules and external packages
+  if (!importPath.startsWith(".") && !importPath.startsWith("/")) {
+    return null;
+  }
+
+  const fromDir = dirname(resolve(rootDir, fromFile));
+  let resolvedPath = resolve(fromDir, importPath);
+
+  // Remove .js extension if present (TypeScript often imports .js but source is .ts)
+  resolvedPath = resolvedPath.replace(/\.js$/, "");
+
+  // Try different extensions
+  const extensions = [".ts", ".tsx", ".js", ".jsx", ""];
+  const indexFiles = ["index.ts", "index.tsx", "index.js", "index.jsx"];
+
+  for (const ext of extensions) {
+    const tryPath = resolvedPath + ext;
+    if (existsSync(tryPath)) {
+      return relative(rootDir, tryPath);
+    }
+  }
+
+  // Try as directory with index file
+  for (const indexFile of indexFiles) {
+    const tryPath = join(resolvedPath, indexFile);
+    if (existsSync(tryPath)) {
+      return relative(rootDir, tryPath);
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Resolve imports for a set of files recursively
+ */
+export function resolveImportsForFiles(
+  files: IndexedFile[],
+  allFiles: IndexedFile[],
+  rootDir: string,
+  depth: number = 2,
+  logger?: Logger
+): IndexedFile[] {
+  if (depth <= 0) return [];
+
+  const allFilePaths = new Set(allFiles.map((f) => normalizePath(f.path)));
+  const currentFilePaths = new Set(files.map((f) => normalizePath(f.path)));
+  const importedFiles: IndexedFile[] = [];
+  const processedImports = new Set<string>();
+
+  for (const file of files) {
+    const imports = extractImports(file.content);
+
+    for (const importPath of imports) {
+      const resolvedPath = resolveImportPath(importPath, file.path, rootDir);
+
+      if (!resolvedPath) continue;
+
+      const normalizedResolved = normalizePath(resolvedPath);
+
+      // Skip if already in current files or already processed
+      if (currentFilePaths.has(normalizedResolved) || processedImports.has(normalizedResolved)) {
+        continue;
+      }
+
+      processedImports.add(normalizedResolved);
+
+      // Find the file in allFiles
+      const importedFile = allFiles.find((f) => normalizePath(f.path) === normalizedResolved);
+
+      if (importedFile) {
+        importedFiles.push(importedFile);
+        logger?.debug(`Resolved import: ${file.path} -> ${resolvedPath}`);
+      } else if (allFilePaths.has(normalizedResolved)) {
+        // File exists but wasn't in allFiles, try to read it
+        try {
+          const absolutePath = resolve(rootDir, resolvedPath);
+          const content = readFileSync(absolutePath, "utf-8");
+          const newFile: IndexedFile = {
+            path: normalizedResolved,
+            content,
+            directory: normalizePath(dirname(resolvedPath)),
+          };
+          importedFiles.push(newFile);
+          logger?.debug(`Loaded imported file: ${resolvedPath}`);
+        } catch {
+          logger?.debug(`Could not load imported file: ${resolvedPath}`);
+        }
+      }
+    }
+  }
+
+  // Recursively resolve imports from the newly found files
+  if (importedFiles.length > 0 && depth > 1) {
+    const nestedImports = resolveImportsForFiles(
+      importedFiles,
+      [...allFiles, ...importedFiles],
+      rootDir,
+      depth - 1,
+      logger
+    );
+    return [...importedFiles, ...nestedImports];
+  }
+
+  return importedFiles;
+}
+
+/**
+ * Load additional files by glob patterns
+ */
+export async function loadAdditionalFiles(
+  rootDir: string,
+  patterns: string[],
+  exclude: string[],
+  existingFiles: Set<string>,
+  logger?: Logger
+): Promise<IndexedFile[]> {
+  const additionalFiles: IndexedFile[] = [];
+
+  for (const pattern of patterns) {
+    const matches = await glob(pattern, {
+      cwd: rootDir,
+      ignore: exclude,
+      nodir: true,
+      absolute: false,
+    });
+
+    for (const match of matches) {
+      const normalizedPath = normalizePath(match);
+
+      if (existingFiles.has(normalizedPath)) {
+        continue;
+      }
+
+      try {
+        const absolutePath = resolve(rootDir, match);
+        const content = readFileSync(absolutePath, "utf-8");
+        const directory = dirname(match);
+
+        additionalFiles.push({
+          path: normalizedPath,
+          content,
+          directory: normalizePath(directory === "." ? "" : directory),
+        });
+
+        logger?.debug(`Added additional file: ${match}`);
+      } catch {
+        logger?.warn(`Failed to read additional file: ${match}`);
+      }
+    }
+  }
+
+  return additionalFiles;
 }
 
 /**

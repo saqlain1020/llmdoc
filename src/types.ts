@@ -33,6 +33,12 @@ export interface SubfolderConfig {
   outputPath?: string;
   /** Path to existing documentation to update */
   existingDocs?: string;
+  /** Whether to include files that are imported by files in this subfolder (default: true) */
+  includeImports?: boolean;
+  /** Additional file paths or glob patterns to include for context */
+  additionalFiles?: string[];
+  /** Maximum depth for resolving nested imports (default: 2) */
+  importDepth?: number;
 }
 
 /**
