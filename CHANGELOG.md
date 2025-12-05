@@ -1,5 +1,11 @@
 # llmdoc
 
+## 0.2.2
+
+### Patch Changes
+
+- fixing config location
+
 ## 0.2.1
 
 ### Patch Changes
