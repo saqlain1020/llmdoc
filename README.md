@@ -17,25 +17,31 @@ A CLI tool for automatically generating documentation for TypeScript projects us
 ## Installation
 
 ```bash
-# Using npm
-npm install -g llmdoc
-
-# Using bun
-bun add -g llmdoc
-
-# Or use directly with npx
+# Use directly with npx (no installation required)
 npx llmdoc
+
+# Or install globally
+npm install -g llmdoc
+bun add -g llmdoc
 ```
+
+> **✨ npx works without local installation!** The config file can import from `llmdoc` even when using npx - the package resolves imports automatically.
 
 ## Quick Start
 
 1. **Initialize a config file:**
 
 ```bash
-llmdoc init
+# Create a TypeScript config (with type safety)
+npx llmdoc init
+
+# Or create a JSON config (simpler, no imports needed)
+npx llmdoc init --json
 ```
 
-2. **Edit `llmdoc.config.ts`** to configure your LLM provider:
+2. **Edit your config file** to configure your LLM provider:
+
+**TypeScript (`llmdoc.config.ts`):**
 
 ```typescript
 import { defineConfig } from 'llmdoc';
@@ -49,13 +55,30 @@ export default defineConfig({
 });
 ```
 
+**JSON (`llmdoc.config.json`):**
+
+```json
+{
+  "llm": {
+    "provider": "openai",
+    "model": "gpt-4o"
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["**/*.test.ts", "node_modules/**"]
+}
+```
+
 3. **Run documentation generation:**
 
 ```bash
-llmdoc
+npx llmdoc
 ```
 
 ## Configuration
+
+llmdoc supports both TypeScript (`.ts`) and JSON (`.json`) config files. TypeScript configs provide type safety, while JSON configs are simpler and don't require imports.
+
+**Supported config file names:** `llmdoc.config.ts`, `llmdoc.config.js`, `llmdoc.config.mjs`, `llmdoc.config.json`
 
 ### Full Config Example
 
@@ -167,23 +190,26 @@ Options:
   -h, --help           Display help
 
 Commands:
-  init                 Create a sample llmdoc.config.ts file
+  init [options]       Create a sample config file
+    --json             Create a JSON config instead of TypeScript
 ```
 
 ## Supported LLM Providers
 
 | Provider | Models | Environment Variable |
 |----------|--------|---------------------|
-| OpenAI | gpt-4o, gpt-4-turbo, gpt-3.5-turbo | `OPENAI_API_KEY` |
-| Anthropic | claude-3-opus, claude-3-sonnet, claude-3-haiku | `ANTHROPIC_API_KEY` |
-| Google | gemini-pro, gemini-1.5-pro | `GOOGLE_API_KEY` |
+| OpenAI | gpt-5, gpt-4o, gpt-4o-mini, o1, o1-mini, o3 | `OPENAI_API_KEY` |
+| Anthropic | claude-opus-4, claude-sonnet-4, claude-sonnet-4-20250514, claude-3-5-sonnet | `ANTHROPIC_API_KEY` |
+| Google | gemini-3-pro-preview, gemini-2.5-pro, gemini-2.5-flash, gemini-2.0-flash | `GOOGLE_API_KEY` |
+
+> **Note:** Any model supported by the provider can be used. The table above shows popular options.
 
 ## Token Estimation & Cost Preview
 
 Use `--dry-run` to preview token usage and estimated costs before making LLM calls:
 
 ```bash
-llmdoc --dry-run
+npx llmdoc --dry-run
 ```
 
 Output includes:

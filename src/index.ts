@@ -144,9 +144,39 @@ function initCLI(): void {
   program
     .command("init")
     .description("Create a sample llmdoc.config.ts file")
-    .action(() => {
+    .option("--json", "Create a JSON config file instead (no imports required)")
+    .action((opts) => {
       const logger = createLogger(false);
-      const sampleConfig = `import { defineConfig } from 'llmdoc';
+      const fs = require("node:fs");
+      const path = require("node:path");
+
+      if (opts.json) {
+        // JSON config - works without any imports, perfect for npx usage
+        const jsonConfig = {
+          llm: {
+            provider: "openai",
+            model: "gpt-4o",
+          },
+          include: ["src/**/*.ts"],
+          exclude: ["**/*.test.ts", "**/*.spec.ts", "node_modules/**", "dist/**"],
+          subfolders: [],
+          outputDir: "docs/",
+        };
+
+        const configPath = path.resolve(process.cwd(), "llmdoc.config.json");
+
+        if (fs.existsSync(configPath)) {
+          logger.error("llmdoc.config.json already exists");
+          process.exit(1);
+        }
+
+        fs.writeFileSync(configPath, JSON.stringify(jsonConfig, null, 2));
+        logger.success("Created llmdoc.config.json");
+        logger.info("Edit the config file to customize your documentation generation");
+        logger.info("Set your API key via environment variable (e.g., OPENAI_API_KEY)");
+      } else {
+        // TypeScript config - provides type safety
+        const sampleConfig = `import { defineConfig } from 'llmdoc';
 
 export default defineConfig({
   llm: {
@@ -186,18 +216,17 @@ export default defineConfig({
 });
 `;
 
-      const fs = require("node:fs");
-      const path = require("node:path");
-      const configPath = path.resolve(process.cwd(), "llmdoc.config.ts");
+        const configPath = path.resolve(process.cwd(), "llmdoc.config.ts");
 
-      if (fs.existsSync(configPath)) {
-        logger.error("llmdoc.config.ts already exists");
-        process.exit(1);
+        if (fs.existsSync(configPath)) {
+          logger.error("llmdoc.config.ts already exists");
+          process.exit(1);
+        }
+
+        fs.writeFileSync(configPath, sampleConfig);
+        logger.success("Created llmdoc.config.ts");
+        logger.info("Edit the config file to customize your documentation generation");
       }
-
-      fs.writeFileSync(configPath, sampleConfig);
-      logger.success("Created llmdoc.config.ts");
-      logger.info("Edit the config file to customize your documentation generation");
     });
 
   program.parse();

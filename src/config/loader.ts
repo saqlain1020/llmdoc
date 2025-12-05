@@ -1,6 +1,7 @@
 import { createJiti } from "jiti";
 import { existsSync, readFileSync } from "node:fs";
-import { resolve, extname } from "node:path";
+import { resolve, extname, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { validateConfig, type LLMDocConfigSchema } from "./schema.js";
 import type { Logger } from "../types.js";
 
@@ -10,11 +11,35 @@ import type { Logger } from "../types.js";
 const CONFIG_FILES = ["llmdoc.config.ts", "llmdoc.config.js", "llmdoc.config.mjs", "llmdoc.config.json"];
 
 /**
+ * Get the directory of the current module (works in both dev and dist)
+ */
+function getCurrentDir(): string {
+  return dirname(fileURLToPath(import.meta.url));
+}
+
+/**
  * Load configuration from a TypeScript file using jiti
+ * Uses alias to resolve 'llmdoc' imports to the actual package location,
+ * allowing config files to work even when llmdoc is not installed locally (e.g., npx)
  */
 async function loadTsConfig(configPath: string): Promise<unknown> {
+  const currentDir = getCurrentDir();
+
+  // Resolve paths to the package's modules
+  // When running from dist/, the structure is:
+  //   dist/config/loader.mjs (this file)
+  //   dist/index.mjs (main entry)
+  //   dist/config/index.mjs (config entry)
+  const mainEntry = resolve(currentDir, "../index.mjs");
+  const configEntry = resolve(currentDir, "./index.mjs");
+
   const jiti = createJiti(import.meta.url, {
     interopDefault: true,
+    alias: {
+      // Allow users to import from 'llmdoc' even when not installed locally
+      llmdoc: mainEntry,
+      "llmdoc/config": configEntry,
+    },
   });
 
   const module = await jiti.import(configPath);
